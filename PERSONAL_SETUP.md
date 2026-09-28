@@ -45,10 +45,11 @@ Run it first with `--dry-run` if you want to validate connection and mapping
 without writes. When HTTP Basic Auth is enabled, append `--username` and
 `--password`; do not put the password into a shell history on a shared machine.
 
-The importer creates the requested initial accounts (Cash GEL, Georgian Card
-GEL, Mono UAH, Wise USD) and all expense categories in `Lists`. A transaction
-with an empty payment method goes to `Unspecified <currency>`; `Другое` goes to
-`Other <currency>`. This makes the uncertainty visible and avoids guessing.
+Without currency conversion, the importer creates the requested initial
+accounts (Cash GEL, Georgian Card GEL, Mono UAH, Wise USD) and all expense
+categories in `Lists`. A transaction with an empty payment method goes to
+`Unspecified <currency>`; `Другое` goes to `Other <currency>`. This makes the
+uncertainty visible and avoids guessing.
 
 Each Google `Transaction ID` is written to `transactions.external_id`, a unique
 nullable column. Re-running the command searches that ID first and reports it
@@ -56,6 +57,23 @@ as already present, so it does not duplicate expenses. Long receipt OCR is kept
 in `notes`; short human-readable text/merchant becomes `description`; the
 source becomes a `source:<value>` tag. A receipt URL, when present, is appended
 to notes.
+
+### Fixed GEL → USD conversion
+
+To keep this personal instance entirely in USD at a fixed rate, use
+`--gel-to-usd`. Existing imported rows can be rewritten safely with
+`--update-existing`, still matched only by their Google `Transaction ID`:
+
+```bash
+python3 backend/scripts/import_google_sheet.py \
+  --sheet-url 'https://docs.google.com/spreadsheets/d/1U5Rn7FgpGywAHBytJop52RLic7AVlNQzietsgI9xwF8/edit?usp=sharing' \
+  --api-url http://localhost:3001/api \
+  --gel-to-usd 0.375 \
+  --update-existing
+```
+
+This conversion applies only to GEL and leaves USD unchanged. It rejects EUR
+or UAH rather than fabricating an exchange rate for them.
 
 ## Upstream and backups
 

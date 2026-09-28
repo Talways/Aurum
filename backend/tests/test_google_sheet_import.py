@@ -68,8 +68,8 @@ def test_import_is_idempotent_and_creates_source_tags():
     first = import_rows(client, rows, ["Продукты", "Здоровье"])
     second = import_rows(client, rows, ["Продукты", "Здоровье"])
 
-    assert first == {"imported": 1, "skipped": 0, "unresolved_categories": 0}
-    assert second == {"imported": 0, "skipped": 1, "unresolved_categories": 0}
+    assert first == {"imported": 1, "updated": 0, "skipped": 0, "unresolved_categories": 0}
+    assert second == {"imported": 0, "updated": 0, "skipped": 1, "unresolved_categories": 0}
     assert len(client.transactions) == 1
     assert client.transactions[0]["date"] == "2026-09-28"
     assert client.transactions[0]["external_id"] == "google-row-1"

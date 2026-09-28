@@ -19,6 +19,7 @@ import io
 import json
 import os
 import sys
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -123,6 +124,32 @@ def account_spec(payment_method: str, currency: str) -> tuple[str, str]:
     return f"{clean(payment_method)} {currency}", "other"
 
 
+def convert_to_usd(amount: Decimal, currency: str, gel_to_usd: Decimal | None) -> tuple[Decimal, str]:
+    """Convert GEL at an explicitly supplied fixed rate; USD stays unchanged.
+
+    Other currencies intentionally fail rather than silently applying a GEL
+    rate to EUR or UAH.
+    """
+    if gel_to_usd is None:
+        return amount, currency
+    if currency == "USD":
+        return amount, "USD"
+    if currency == "GEL":
+        return (amount * gel_to_usd).quantize(Decimal("0.01")), "USD"
+    raise ValueError(f"no fixed USD rate supplied for {currency}")
+
+
+def default_accounts_for_currency(currency: str | None) -> tuple[tuple[str, str, str], ...]:
+    if currency is None:
+        return DEFAULT_ACCOUNTS
+    return (
+        (f"Cash {currency}", "cash", currency),
+        (f"Georgian Card {currency}", "debit_card", currency),
+        (f"Mono {currency}", "debit_card", currency),
+        (f"Wise {currency}", "checking", currency),
+    )
+
+
 def sheet_csv_url(sheet_url: str, gid: str) -> str:
     parsed = urlparse(sheet_url)
     parts = [part for part in parsed.path.split("/") if part]
@@ -210,12 +237,21 @@ class AurumClient:
             token = base64.b64encode(f"{self.username}:{self.password}".encode()).decode()
             headers["Authorization"] = f"Basic {token}"
         request = Request(f"{self.api_url.rstrip('/')}/{path.lstrip('/')}", data=body, headers=headers, method=method)
-        try:
-            with urlopen(request, timeout=30) as response:  # nosec B310: API URL is user-supplied
-                raw = response.read().decode()
-        except HTTPError as exc:
-            detail = exc.read().decode(errors="replace")
-            raise ImportErrorWithContext(f"{method} {path} failed with HTTP {exc.code}: {detail}") from exc
+        for attempt in range(4):
+            try:
+                with urlopen(request, timeout=30) as response:  # nosec B310: API URL is user-supplied
+                    raw = response.read().decode()
+                break
+            except HTTPError as exc:
+                if exc.code == 429 and attempt < 3:
+                    # Aurum's nginx protects the API with a request-rate
+                    # limit.  A one-off import creates two requests per row;
+                    # back off rather than turning a harmless retry into a
+                    # partial migration failure.
+                    time.sleep(1 + attempt)
+                    continue
+                detail = exc.read().decode(errors="replace")
+                raise ImportErrorWithContext(f"{method} {path} failed with HTTP {exc.code}: {detail}") from exc
         return json.loads(raw) if raw else None
 
     def get(self, path: str) -> Any:
@@ -224,13 +260,21 @@ class AurumClient:
     def post(self, path: str, payload: dict[str, Any]) -> Any:
         return self.request("POST", path, payload)
 
+    def patch(self, path: str, payload: dict[str, Any]) -> Any:
+        return self.request("PATCH", path, payload)
+
 
 def by_name(items: Iterable[dict[str, Any]]) -> dict[tuple[str, str | None], dict[str, Any]]:
     return {(item["name"].casefold(), item.get("currency")): item for item in items}
 
 
 def import_rows(
-    client: AurumClient, rows: list[dict[str, str]], category_names: Iterable[str] = (), dry_run: bool = False
+    client: AurumClient,
+    rows: list[dict[str, str]],
+    category_names: Iterable[str] = (),
+    dry_run: bool = False,
+    gel_to_usd: Decimal | None = None,
+    update_existing: bool = False,
 ) -> dict[str, int]:
     accounts = by_name(client.get("accounts"))
     categories = {(item["name"].casefold(), item["kind"]): item for item in client.get("categories")}
@@ -267,20 +311,17 @@ def import_rows(
 
     # Provision the agreed personal structure even if an account/category
     # has no transactions in the initial export yet.
-    for name, type_, currency in DEFAULT_ACCOUNTS:
+    for name, type_, currency in default_accounts_for_currency("USD" if gel_to_usd is not None else None):
         ensure_account(name, type_, currency)
     for name in category_names:
         ensure_category(name)
 
-    imported = skipped = unresolved_categories = 0
+    imported = updated = skipped = unresolved_categories = 0
     for number, row in enumerate(rows, start=2):
         external_id = clean(row.get("Transaction ID"))
         if not external_id:
             raise ImportErrorWithContext(f"row {number}: Transaction ID is required for idempotent import")
         existing = client.get("transactions?" + urlencode({"external_id": external_id, "page_size": 1}))
-        if existing["total"]:
-            skipped += 1
-            continue
         currency = clean(row.get("Currency")).upper()
         if len(currency) != 3 or not currency.isalpha():
             raise ImportErrorWithContext(f"row {number}: invalid currency {currency!r}")
@@ -290,6 +331,7 @@ def import_rows(
                 raise ValueError("must be positive")
             transaction_date = parse_sheet_date(clean(row.get("Date")) or clean(row.get("Timestamp")))
             transaction_notes = notes(row)
+            amount, currency = convert_to_usd(amount, currency, gel_to_usd)
         except (InvalidOperation, ValueError) as exc:
             raise ImportErrorWithContext(f"row {number}: {exc}") from exc
         account_name, account_type = account_spec(clean(row.get("Payment Method")), currency)
@@ -311,10 +353,23 @@ def import_rows(
         }
         if category is None:
             unresolved_categories += 1
+        if existing["total"]:
+            if update_existing:
+                if not dry_run:
+                    client.patch(f"transactions/{existing['items'][0]['id']}", payload)
+                updated += 1
+            else:
+                skipped += 1
+            continue
         if not dry_run:
             client.post("transactions", payload)
         imported += 1
-    return {"imported": imported, "skipped": skipped, "unresolved_categories": unresolved_categories}
+    return {
+        "imported": imported,
+        "updated": updated,
+        "skipped": skipped,
+        "unresolved_categories": unresolved_categories,
+    }
 
 
 def main() -> int:
@@ -330,6 +385,8 @@ def main() -> int:
     )
     parser.add_argument("--username", help="Aurum HTTP Basic Auth username")
     parser.add_argument("--password", help="Aurum HTTP Basic Auth password")
+    parser.add_argument("--gel-to-usd", type=Decimal, help="Fixed conversion rate: USD for one GEL")
+    parser.add_argument("--update-existing", action="store_true", help="Update already imported external IDs")
     parser.add_argument("--dry-run", action="store_true", help="Validate mappings without writing to Aurum")
     args = parser.parse_args()
     if (args.username is None) != (args.password is None):
@@ -337,12 +394,19 @@ def main() -> int:
     try:
         rows = download_rows(args.sheet_url, args.gid, args.google_access_token)
         categories = download_category_names(args.sheet_url, args.lists_gid, args.google_access_token)
-        summary = import_rows(AurumClient(args.api_url, args.username, args.password), rows, categories, args.dry_run)
+        summary = import_rows(
+            AurumClient(args.api_url, args.username, args.password),
+            rows,
+            categories,
+            args.dry_run,
+            args.gel_to_usd,
+            args.update_existing,
+        )
     except (ImportErrorWithContext, OSError, ValueError) as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
         return 1
     mode = "Dry run" if args.dry_run else "Import"
-    print(f"{mode} complete: {summary['imported']} imported, {summary['skipped']} already present, "
+    print(f"{mode} complete: {summary['imported']} imported, {summary['updated']} updated, {summary['skipped']} already present, "
           f"{summary['unresolved_categories']} without a category.")
     return 0
 
