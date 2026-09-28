@@ -62,6 +62,8 @@ class TransactionBackup(BaseModel):
     description: str
     merchant: str | None
     notes: str | None
+    # Optional for backups made before transaction external IDs existed.
+    external_id: str | None = None
     date: date_
     # Defaulted so a backup exported before tags existed still imports
     # cleanly under the same format version. Not a plain column — populated

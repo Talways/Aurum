@@ -91,6 +91,7 @@ export interface Transaction {
   description: string;
   merchant: string | null;
   notes: string | null;
+  external_id: string | null;
   date: string;
   account: Account;
   category: Category | null;
@@ -114,6 +115,7 @@ export interface TransactionInput {
   description: string;
   merchant?: string | null;
   notes?: string | null;
+  external_id?: string | null;
   date: string;
   // Omitted -> tags untouched on update; sent (even as []) -> replaces the
   // full tag set. Always sent on create (defaults to []).
@@ -569,4 +571,3 @@ export interface AppSettings {
    * from /api/health, which is served without auth. */
   app_version: string;
 }
-

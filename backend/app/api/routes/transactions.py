@@ -109,6 +109,7 @@ async def list_transactions(
     account_id: int | None = None,
     category_id: int | None = None,
     tag_id: int | None = None,
+    external_id: str | None = Query(default=None, min_length=1, max_length=255),
     type: TransactionType | None = None,
     search: str | None = Query(default=None, min_length=1, max_length=255),
     sort: Literal["date_desc", "amount_desc", "amount_asc"] = Query(default="date_desc"),
@@ -147,6 +148,9 @@ async def list_transactions(
     if tag_id is not None:
         stmt = stmt.where(Transaction.tags.any(Tag.id == tag_id))
         count_stmt = count_stmt.where(Transaction.tags.any(Tag.id == tag_id))
+    if external_id is not None:
+        stmt = stmt.where(Transaction.external_id == external_id)
+        count_stmt = count_stmt.where(Transaction.external_id == external_id)
     if type is not None:
         stmt = stmt.where(Transaction.type == type)
         count_stmt = count_stmt.where(Transaction.type == type)

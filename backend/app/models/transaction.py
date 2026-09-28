@@ -29,6 +29,10 @@ class Transaction(Base, TimestampMixin):
     description: Mapped[str] = mapped_column(String(255), nullable=False)
     merchant: Mapped[str | None] = mapped_column(String(150), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Stable key assigned by an upstream system (for example a one-time
+    # Google Sheets migration).  It is deliberately nullable: hand-entered
+    # transactions and future phone shortcuts do not need an external key.
+    external_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     date: Mapped[date_] = mapped_column(Date, nullable=False)
 
     account: Mapped["Account"] = relationship(back_populates="transactions", foreign_keys=[account_id])

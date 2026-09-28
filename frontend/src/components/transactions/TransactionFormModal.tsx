@@ -489,7 +489,7 @@ export function TransactionFormModal({ open, onClose, transaction }: Transaction
               note only fails on save, as an untranslated 422. */}
           <Input
             id="notes"
-            maxLength={2000}
+            maxLength={60000}
             value={form.notes}
             onChange={(event) => setForm((prev) => ({ ...prev, notes: event.target.value }))}
           />
