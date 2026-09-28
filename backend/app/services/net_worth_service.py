@@ -24,6 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.account import Account
+from app.models.account_balance_adjustment import AccountBalanceAdjustment
 from app.models.asset import Asset, AssetValuation
 from app.models.enums import AccountType, AssetClass, CapitalRole, RiskLevel, TransactionType
 from app.models.transaction import Transaction
@@ -116,6 +117,13 @@ async def _cash_cumulative_events(session: AsyncSession) -> list[tuple[date_, De
                 delta_by_date[tx_date] -= amount
             if transfer_account_id in cash_account_ids:
                 delta_by_date[tx_date] += amount
+
+    adjustments_result = await session.execute(
+        select(AccountBalanceAdjustment.as_of_date, AccountBalanceAdjustment.amount, AccountBalanceAdjustment.account_id)
+    )
+    for adjustment_date, amount, account_id in adjustments_result.all():
+        if account_id in cash_account_ids:
+            delta_by_date[adjustment_date] += amount
 
     events: list[tuple[date_, Decimal]] = []
     running = Decimal("0")

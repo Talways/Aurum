@@ -28,6 +28,15 @@ class AccountBackup(BaseModel):
     is_archived: bool
 
 
+class AccountBalanceAdjustmentBackup(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    account_id: int
+    amount: Decimal
+    as_of_date: date_
+
+
 class CategoryBackup(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -227,6 +236,7 @@ class BackupPayload(BaseModel):
     exported_at: datetime
     app_version: str
     accounts: list[AccountBackup]
+    account_balance_adjustments: list[AccountBalanceAdjustmentBackup] = Field(default_factory=list)
     categories: list[CategoryBackup]
     # Defaulted so a backup exported before tags existed still imports
     # cleanly under the same format version.

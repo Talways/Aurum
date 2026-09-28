@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { AccountList } from "@/components/accounts/AccountList";
 import { AccountFormModal } from "@/components/accounts/AccountFormModal";
+import { AccountBalanceModal } from "@/components/accounts/AccountBalanceModal";
 import { useAccounts, useDeleteAccount, useUpdateAccount } from "@/hooks/useAccounts";
 import { useTranslation } from "@/lib/i18n";
 import type { Account, AccountWithBalance } from "@/types";
@@ -17,6 +18,7 @@ export function AccountsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [balanceAccount, setBalanceAccount] = useState<AccountWithBalance | null>(null);
 
   function openCreateModal() {
     setEditingAccount(null);
@@ -30,6 +32,10 @@ export function AccountsPage() {
 
   function handleToggleArchived(account: AccountWithBalance) {
     updateAccount.mutate({ id: account.id, input: { is_archived: !account.is_archived } });
+  }
+
+  function openBalanceModal(account: AccountWithBalance) {
+    setBalanceAccount(account);
   }
 
   function handleDelete(account: AccountWithBalance) {
@@ -64,6 +70,7 @@ export function AccountsPage() {
             <AccountList
               items={accounts ?? []}
               onEdit={openEditModal}
+              onSetBalance={openBalanceModal}
               onToggleArchived={handleToggleArchived}
               onDelete={handleDelete}
             />
@@ -72,6 +79,7 @@ export function AccountsPage() {
       </Card>
 
       <AccountFormModal open={modalOpen} onClose={() => setModalOpen(false)} account={editingAccount} />
+      <AccountBalanceModal open={balanceAccount !== null} onClose={() => setBalanceAccount(null)} account={balanceAccount} />
     </div>
   );
 }

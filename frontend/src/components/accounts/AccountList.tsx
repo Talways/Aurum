@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, Banknote, CreditCard, Package, Pencil, PiggyBank, TrendingUp, Trash2, Wallet, type LucideIcon } from "lucide-react";
+import { Archive, ArchiveRestore, Banknote, CreditCard, Package, Pencil, PiggyBank, Scale, TrendingUp, Trash2, Wallet, type LucideIcon } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { useTranslation, type TranslationKey } from "@/lib/i18n";
 import type { Account, AccountType, AccountWithBalance } from "@/types";
@@ -6,6 +6,7 @@ import type { Account, AccountType, AccountWithBalance } from "@/types";
 interface AccountListProps {
   items: AccountWithBalance[];
   onEdit: (account: Account) => void;
+  onSetBalance: (account: AccountWithBalance) => void;
   onToggleArchived: (account: AccountWithBalance) => void;
   onDelete: (account: AccountWithBalance) => void;
 }
@@ -20,7 +21,7 @@ const TYPE_ICONS: Record<AccountType, LucideIcon> = {
   other: Package,
 };
 
-export function AccountList({ items, onEdit, onToggleArchived, onDelete }: AccountListProps) {
+export function AccountList({ items, onEdit, onSetBalance, onToggleArchived, onDelete }: AccountListProps) {
   const { t } = useTranslation();
 
   if (items.length === 0) {
@@ -58,6 +59,14 @@ export function AccountList({ items, onEdit, onToggleArchived, onDelete }: Accou
               {formatCurrency(balance)}
             </span>
             <span className="flex shrink-0 gap-1">
+              <button
+                type="button"
+                aria-label={t("account.setBalanceLabel")}
+                onClick={() => onSetBalance(account)}
+                className="rounded-md p-1.5 text-text-muted hover:bg-surface-2 hover:text-text-primary"
+              >
+                <Scale size={15} />
+              </button>
               <button
                 type="button"
                 aria-label={account.is_archived ? t("account.unarchiveLabel") : t("account.archiveLabel")}

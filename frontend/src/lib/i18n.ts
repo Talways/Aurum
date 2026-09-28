@@ -451,6 +451,7 @@ const ru = {
   "account.archivedBadge": "архив",
   "account.archiveLabel": "Архивировать",
   "account.unarchiveLabel": "Вернуть из архива",
+  "account.setBalanceLabel": "Установить фактический баланс",
   "account.confirmDelete":
     "Удалить счёт «{{name}}»?\n\nЭто безвозвратно удалит и ВСЕ транзакции по этому счёту. Если хотите сохранить историю, заархивируйте счёт вместо удаления.",
   "account.type.checking": "Текущий счёт",
@@ -466,6 +467,10 @@ const ru = {
   "account.form.namePlaceholder": "Основной счёт, накопления, наличные…",
   "account.form.typeLabel": "Тип",
   "account.form.saveError": "Не удалось сохранить счёт. Проверьте данные и попробуйте снова.",
+  "account.balance.title": "Фактический баланс",
+  "account.balance.explanation": "Укажите остаток на счёте «{{name}}». История операций не изменится: приложение сохранит отдельную корректировку.",
+  "account.balance.amountLabel": "Баланс в USD",
+  "account.balance.saveError": "Не удалось сохранить фактический баланс. Проверьте сумму и попробуйте снова.",
 
   "category.expenseSectionTitle": "Категории расходов",
   "category.incomeSectionTitle": "Категории доходов",
@@ -976,6 +981,7 @@ const en: Record<keyof typeof ru, string> = {
   "account.archivedBadge": "archived",
   "account.archiveLabel": "Archive",
   "account.unarchiveLabel": "Unarchive",
+  "account.setBalanceLabel": "Set actual balance",
   "account.confirmDelete":
     "Delete the account “{{name}}”?\n\nThis will permanently delete ALL transactions on this account too. If you want to keep the history, archive the account instead of deleting it.",
   "account.type.checking": "Checking",
@@ -991,6 +997,10 @@ const en: Record<keyof typeof ru, string> = {
   "account.form.namePlaceholder": "Main account, savings, cash…",
   "account.form.typeLabel": "Type",
   "account.form.saveError": "Failed to save the account. Check the data and try again.",
+  "account.balance.title": "Actual balance",
+  "account.balance.explanation": "Enter the balance on “{{name}}”. Transaction history will not change; the app saves a separate adjustment.",
+  "account.balance.amountLabel": "Balance in USD",
+  "account.balance.saveError": "Failed to save the actual balance. Check the amount and try again.",
 
   "category.expenseSectionTitle": "Expense categories",
   "category.incomeSectionTitle": "Income categories",

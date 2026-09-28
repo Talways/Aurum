@@ -13,6 +13,10 @@ export function updateAccount(id: number, input: Partial<AccountInput> & { is_ar
   return api.patch<AccountWithBalance>(`/accounts/${id}`, input);
 }
 
+export function setAccountBalance(id: number, balance: string) {
+  return api.put<AccountWithBalance>(`/accounts/${id}/balance`, { balance });
+}
+
 export function deleteAccount(id: number) {
   return api.delete<void>(`/accounts/${id}`);
 }

@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_session
 from app.core.audit import log_destructive
-from app.schemas.account import AccountCreate, AccountUpdate, AccountWithBalance
-from app.services.account_service import create_account, delete_account, list_accounts, update_account
+from app.schemas.account import AccountBalanceSet, AccountCreate, AccountUpdate, AccountWithBalance
+from app.services.account_service import create_account, delete_account, list_accounts, set_account_balance, update_account
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -28,6 +28,13 @@ async def update_account_route(
     account_id: int, payload: AccountUpdate, session: AsyncSession = Depends(get_session)
 ) -> AccountWithBalance:
     return await update_account(session, account_id, payload)
+
+
+@router.put("/{account_id}/balance", response_model=AccountWithBalance)
+async def set_account_balance_route(
+    account_id: int, payload: AccountBalanceSet, session: AsyncSession = Depends(get_session)
+) -> AccountWithBalance:
+    return await set_account_balance(session, account_id, payload)
 
 
 @router.delete("/{account_id}", status_code=204)

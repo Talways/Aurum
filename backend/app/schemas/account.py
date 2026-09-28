@@ -1,3 +1,4 @@
+from datetime import date as date_
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +23,13 @@ class AccountUpdate(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$")
     is_archived: bool | None = None
+
+
+class AccountBalanceSet(BaseModel):
+    """Set an account's actual balance as of a calendar day."""
+
+    balance: Decimal = Field(max_digits=14, decimal_places=2)
+    as_of_date: date_ | None = None
 
 
 class AccountRead(AccountBase):

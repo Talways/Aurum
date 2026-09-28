@@ -19,6 +19,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.config import APP_VERSION
 from app.models.account import Account
+from app.models.account_balance_adjustment import AccountBalanceAdjustment
 from app.models.asset import Asset, AssetValuation
 from app.models.budget import Budget
 from app.models.category import Category
@@ -30,6 +31,7 @@ from app.models.tag import Tag
 from app.models.transaction import Transaction, TransactionSplit
 from app.schemas.backup import (
     AccountBackup,
+    AccountBalanceAdjustmentBackup,
     AppSettingsBackup,
     AssetBackup,
     AssetValuationBackup,
@@ -54,6 +56,7 @@ BACKUP_FORMAT_VERSION = 1
 
 async def build_backup(session: AsyncSession) -> BackupPayload:
     accounts = (await session.execute(select(Account))).scalars().all()
+    account_balance_adjustments = (await session.execute(select(AccountBalanceAdjustment))).scalars().all()
     categories = (await session.execute(select(Category))).scalars().all()
     tags = (await session.execute(select(Tag))).scalars().all()
     transactions = (await session.execute(select(Transaction).options(selectinload(Transaction.tags)))).scalars().all()
@@ -74,6 +77,7 @@ async def build_backup(session: AsyncSession) -> BackupPayload:
         exported_at=datetime.now(timezone.utc),
         app_version=APP_VERSION,
         accounts=[AccountBackup.model_validate(row) for row in accounts],
+        account_balance_adjustments=[AccountBalanceAdjustmentBackup.model_validate(row) for row in account_balance_adjustments],
         categories=[CategoryBackup.model_validate(row) for row in categories],
         tags=[TagBackup.model_validate(row) for row in tags],
         transactions=[
@@ -118,6 +122,10 @@ def _validate_references(payload: BackupPayload) -> None:
         for tag_id in t.tag_ids:
             if tag_id not in tag_ids:
                 raise HTTPException(400, f"Transaction {t.id} references unknown tag_id {tag_id}")
+
+    for adjustment in payload.account_balance_adjustments:
+        if adjustment.account_id not in account_ids:
+            raise HTTPException(400, f"Balance adjustment {adjustment.id} references unknown account_id {adjustment.account_id}")
 
     transaction_ids = {row.id for row in payload.transactions}
     for s in payload.transaction_splits:
@@ -201,6 +209,7 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
         await session.execute(delete(GoalContribution))
         await session.execute(delete(Goal))
         await session.execute(delete(RecurringTransaction))
+        await session.execute(delete(AccountBalanceAdjustment))
         # Deleting transactions cascades transaction_tags and
         # transaction_splits rows (ON DELETE CASCADE) — deleted explicitly
         # here anyway to keep this block's ordering self-documenting.
@@ -218,6 +227,7 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
         categories_in_order = sorted(payload.categories, key=lambda row: row.parent_id is not None)
 
         session.add_all(Account(**row.model_dump()) for row in payload.accounts)
+        session.add_all(AccountBalanceAdjustment(**row.model_dump()) for row in payload.account_balance_adjustments)
         session.add_all(Category(**row.model_dump()) for row in categories_in_order)
         session.add_all(Asset(**row.model_dump()) for row in payload.assets)
 
@@ -276,6 +286,7 @@ async def restore_backup(session: AsyncSession, payload: BackupPayload) -> None:
             await session.flush()
 
         await _reset_sequence(session, "accounts", payload.accounts)
+        await _reset_sequence(session, "account_balance_adjustments", payload.account_balance_adjustments)
         await _reset_sequence(session, "categories", payload.categories)
         await _reset_sequence(session, "tags", payload.tags)
         await _reset_sequence(session, "assets", payload.assets)

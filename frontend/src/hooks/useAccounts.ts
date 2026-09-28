@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createAccount, deleteAccount, fetchAccounts, updateAccount } from "@/api/accounts";
+import { createAccount, deleteAccount, fetchAccounts, setAccountBalance, updateAccount } from "@/api/accounts";
 import type { AccountInput } from "@/types";
 
 export function useAccounts(includeArchived = false) {
@@ -20,6 +20,17 @@ export function useUpdateAccount() {
     mutationFn: ({ id, input }: { id: number; input: Partial<AccountInput> & { is_archived?: boolean } }) =>
       updateAccount(id, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["accounts"] }),
+  });
+}
+
+export function useSetAccountBalance() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, balance }: { id: number; balance: string }) => setAccountBalance(id, balance),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["net-worth-summary"] });
+    },
   });
 }
 
