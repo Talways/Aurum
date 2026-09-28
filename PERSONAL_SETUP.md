@@ -64,11 +64,15 @@ To keep this personal instance entirely in USD at a fixed rate, use
 `--gel-to-usd`. Existing imported rows can be rewritten safely with
 `--update-existing`, still matched only by their Google `Transaction ID`:
 
+For this instance, the agreed rate is `0.3846153846` USD per GEL. It is derived
+from the two original 780 GEL apartment rows in `Transactions`, each of which
+is confirmed as $300.00: `300 / 780 = 0.3846153846`.
+
 ```bash
 python3 backend/scripts/import_google_sheet.py \
   --sheet-url 'https://docs.google.com/spreadsheets/d/1U5Rn7FgpGywAHBytJop52RLic7AVlNQzietsgI9xwF8/edit?usp=sharing' \
   --api-url http://localhost:3001/api \
-  --gel-to-usd 0.375 \
+  --gel-to-usd 0.3846153846 \
   --update-existing
 ```
 
